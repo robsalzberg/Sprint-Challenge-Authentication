@@ -1,8 +1,7 @@
 const axios = require("axios");
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const db = require('../database/dbConfig');
-const jwtKey = require('../auth/authenticate');
+const jwt = require("jsonwebtoken");
+const bcyrpt = require("bcryptjs");
+const db = require("../database/dbConfig");
 const { authenticate } = require("../auth/authenticate");
 
 module.exports = server => {
@@ -11,15 +10,16 @@ module.exports = server => {
   server.get("/api/jokes", authenticate, getJokes);
 };
 
+const secret = process.env.JWT_SECRET;
+
 function generateToken(user) {
   const payload = {
-    subject: user.id,
     username: user.username
   };
 
-  const secret = jwtKey;
   const options = {
     expiresIn: "1h",
+    jwtid: '13645'
   };
 
   return jwt.sign(payload, secret, options);
@@ -27,22 +27,27 @@ function generateToken(user) {
 
 function register(req, res) {
   // implement user registration
-  const creds = req.body;
-  if (!creds.username || !creds.password) {
-    const errorMessage = "Please provide both a username and password";
-    res.status(400).json({ errorMessage });
-    return;
-  }
-  const hash = bcrypt.hashSync(creds.password, 4);
-  creds.password = hash;
+  const credentials = req.body;
+  const hash = bcyrpt.hashSync(credentials.password, 14);
+  credentials.password = hash;
 
   db("users")
-    .insert(creds)
+    .insert(credentials)
     .then(ids => {
-      res.status(201).json(ids);
+      const id = ids[0];
+
+      db("users")
+        .where({ id })
+        .first()
+        .then(user => {
+          const token = generateToken(user);
+          res.status(201).json({ id: user.id, token });
+        });
     })
-    .catch(err => json(err));
-}
+    .catch(err => {
+      res.status(500).json(err);
+    });
+};
 
 function login(req, res) {
   // implement user login
